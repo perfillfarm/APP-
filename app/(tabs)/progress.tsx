@@ -3,8 +3,8 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'rea
 import { Target, TrendingUp, Award, Clock, Calendar, ChartBar as BarChart3, ChevronLeft, ChevronRight, Activity } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useFirebaseRecords } from '@/contexts/FirebaseRecordsContext';
-import { FirebaseService } from '@/services/FirebaseService';
+import { useRecords } from '@/contexts/RecordsContext';
+import { LocalStorageService } from '@/services/LocalStorageService';
 
 // Helper function to get translated month name
 const getTranslatedMonth = (date: Date, t: (key: string) => string): string => {
@@ -35,7 +35,7 @@ interface DailyRecord {
 export default function ProgressScreen() {
   const { theme } = useTheme();
   const { t } = useLanguage();
-  const { records } = useFirebaseRecords();
+  const { records } = useRecords();
   const [selectedMonth, setSelectedMonth] = useState(new Date());
   const [monthlyRecords, setMonthlyRecords] = useState<DailyRecord[]>([]);
   const [periodStats, setPeriodStats] = useState({
@@ -57,7 +57,7 @@ export default function ProgressScreen() {
   useEffect(() => {
     console.log(`📊 [Progress] Records updated: ${records.length} total records`);
     console.log(`📊 [Progress] Selected month: ${selectedMonth.toISOString().slice(0, 7)}`);
-    if (records.length >= 0) { // Allow for empty records
+    if (records.length >= 0) {
       calculatePeriodStats();
       calculateMonthlyStats();
       filterRecordsByMonth();
@@ -69,19 +69,15 @@ export default function ProgressScreen() {
       const year = selectedMonth.getFullYear();
       const month = selectedMonth.getMonth();
       
-      // Get first and last day of selected month
       const firstDay = new Date(year, month, 1);
       const lastDay = new Date(year, month + 1, 0);
       
-      // Filter records for selected month from all available records
       const filteredRecords = records.filter(record => {
         const recordDate = new Date(record.date);
         const isInRange = recordDate >= firstDay && recordDate <= lastDay;
-        
         return isInRange;
       });
       
-      // Sort by date (most recent first)
       filteredRecords.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       
       setMonthlyRecords(filteredRecords);
@@ -96,12 +92,10 @@ export default function ProgressScreen() {
       const year = selectedMonth.getFullYear();
       const month = selectedMonth.getMonth();
       
-      // Get first and last day of selected month
       const firstDay = new Date(year, month, 1);
       const lastDay = new Date(year, month + 1, 0);
       const totalDaysInMonth = lastDay.getDate();
       
-      // Filter records for selected month with real-time data
       const monthRecords = records.filter(record => {
         const recordDate = new Date(record.date);
         return recordDate >= firstDay && recordDate <= lastDay;
@@ -134,23 +128,19 @@ export default function ProgressScreen() {
     }
   };
 
-
   const calculatePeriodStats = () => {
     try {
-      // Use monthly records instead of period-based filtering
       const year = selectedMonth.getFullYear();
       const month = selectedMonth.getMonth();
       const firstDay = new Date(year, month, 1);
       const lastDay = new Date(year, month + 1, 0);
       const totalDaysInMonth = lastDay.getDate();
       
-      // Filter records for selected month
       const monthRecords = records.filter(record => {
         const recordDate = new Date(record.date);
         return recordDate >= firstDay && recordDate <= lastDay;
       });
 
-      // Calculate stats for the selected month
       const completedRecords = monthRecords.filter(r => r.completed);
       const totalCapsules = completedRecords.reduce((sum, r) => sum + (r.capsules || 2), 0);
       const averageCapsules = completedRecords.length > 0 ? totalCapsules / completedRecords.length : 0;
@@ -172,7 +162,6 @@ export default function ProgressScreen() {
       setPeriodStats(newPeriodStats);
     } catch (error) {
       console.error('❌ [Progress] Error calculating period stats:', error);
-      // Set default values in case of error
       setPeriodStats({
         totalCapsules: 0,
         averageCapsules: 0,
@@ -195,13 +184,7 @@ export default function ProgressScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              // Delete all records from Firebase
-              for (const record of records) {
-                if (record.id) {
-                  await FirebaseService.deleteDailyRecord(record.id);
-                }
-              }
-              
+              await LocalStorageService.clearAllDailyRecords();
               Alert.alert(t('cleaningCompleted'), t('allRecordsRemoved'));
             } catch (error) {
               console.error('Error clearing records:', error);
@@ -234,12 +217,12 @@ export default function ProgressScreen() {
 
     const isFutureMonth = () => {
       const now = new Date();
-      const maxDate = new Date(2027, 11, 31); // December 2027
+      const maxDate = new Date(2027, 11, 31);
       return selectedMonth > maxDate;
     };
 
     const isPastLimit = () => {
-      const minDate = new Date(2020, 0, 1); // January 2020
+      const minDate = new Date(2020, 0, 1);
       return selectedMonth < minDate;
     };
 
@@ -288,7 +271,6 @@ export default function ProgressScreen() {
       </View>
     );
   };
-
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -384,7 +366,6 @@ export default function ProgressScreen() {
                 </View>
               </View>
               
-              {/* Progress Bar */}
               <View style={styles.monthlyProgressBar}>
                 <View style={styles.progressBarHeader}>
                   <Text style={[styles.progressBarLabel, { color: theme.colors.text }]}>
@@ -413,7 +394,6 @@ export default function ProgressScreen() {
           </Card>
           
         </Animated.View>
-
 
         {/* Monthly Days Calendar */}
         <Animated.View entering={FadeInDown.delay(450)} style={[styles.section, styles.firstSection]}>
@@ -508,29 +488,27 @@ export default function ProgressScreen() {
               })}
             </ScrollView>
             
-            {/* Legend */}
             <View style={styles.daysLegend}>
               <View style={styles.legendItem}>
                 <View style={[styles.legendDot, { backgroundColor: theme.colors.success }]} />
                 <Text style={[styles.legendText, { color: theme.colors.text }]}>
-                  {t('completed') || 'Completado'}
+                  {t('completed') || 'Completed'}
                 </Text>
               </View>
               <View style={styles.legendItem}>
                 <View style={[styles.legendDot, { backgroundColor: theme.colors.error }]} />
                 <Text style={[styles.legendText, { color: theme.colors.text }]}>
-                  {t('notCompleted') || 'Não Completado'}
+                  {t('notCompleted') || 'Not Completed'}
                 </Text>
               </View>
               <View style={styles.legendItem}>
                 <View style={[styles.legendDot, { backgroundColor: '#f5f5f5', borderWidth: 1, borderColor: '#e0e0e0' }]} />
                 <Text style={[styles.legendText, { color: theme.colors.text }]}>
-                  {t('future') || 'Futuro'}
+                  {t('future') || 'Future'}
                 </Text>
               </View>
             </View>
             
-            {/* Minimalist Swipe Hint */}
             <View style={styles.minimalistSwipeHint}>
               <Text style={[styles.minimalistSwipeText, { color: theme.colors.textSecondary }]}>
                 ← →
@@ -651,10 +629,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textTransform: 'capitalize',
     marginBottom: 4,
-  },
-  monthlyCalendarSubtitle: {
-    fontSize: 14,
-    fontWeight: '500',
   },
   daysScrollView: {
     marginBottom: 16,

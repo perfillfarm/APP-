@@ -4,9 +4,9 @@ import { Target, TrendingUp, Award, Clock, Wifi, WifiOff, CircleCheck as CheckCi
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useFirebaseAuth } from '@/contexts/FirebaseAuthContext';
-import { useFirebaseRecords } from '@/contexts/FirebaseRecordsContext';
-import { useFirebaseStats } from '@/contexts/FirebaseStatsContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { useRecords } from '@/contexts/RecordsContext';
+import { useStats } from '@/contexts/StatsContext';
 import { useTutorial } from '@/hooks/useTutorial';
 import { useDailyReset } from '@/hooks/useDailyReset';
 import { TutorialModal } from '@/components/ui/TutorialModal';
@@ -21,9 +21,9 @@ const { width: screenWidth } = Dimensions.get('window');
 export default function HomeScreen() {
   const { theme } = useTheme();
   const { t } = useLanguage();
-  const { user, userProfile } = useFirebaseAuth();
-  const { records, createRecord, updateRecord, getRecordByDate, syncStatus } = useFirebaseRecords();
-  const { stats } = useFirebaseStats();
+  const { user, userProfile } = useAuth();
+  const { records, createRecord, updateRecord, getRecordByDate, syncStatus } = useRecords();
+  const { stats } = useStats();
   const { showTutorial, completeTutorial, skipTutorial } = useTutorial();
   const [todayRecord, setTodayRecord] = useState<any>(null);
   const [isCompleted, setIsCompleted] = useState(false);
@@ -47,13 +47,13 @@ export default function HomeScreen() {
     }
   });
 
-  // Extrair apenas o primeiro nome
+  // Extract first name only
   const getFirstName = (fullName: string) => {
-    if (!fullName) return 'Usuário';
+    if (!fullName) return 'User';
     return fullName.trim().split(' ')[0];
   };
   
-  const userName = getFirstName(userProfile?.name || user?.displayName || '');
+  const userName = getFirstName(userProfile?.name || user?.name || '');
 
   useEffect(() => {
     console.log(`🏠 [Home] Records updated: ${records.length} records for current date: ${currentDate}`);
@@ -62,19 +62,19 @@ export default function HomeScreen() {
     calculateCurrentMonthStats();
   }, [records, currentDate]);
 
-  // Calcular estatísticas apenas do mês atual para a HOME
+  // Calculate statistics only for current month for HOME
   const calculateCurrentMonthStats = () => {
     try {
       const now = new Date();
       const year = now.getFullYear();
       const month = now.getMonth();
       
-      // Primeiro e último dia do mês atual
+      // First and last day of current month
       const firstDay = new Date(year, month, 1);
       const lastDay = new Date(year, month + 1, 0);
       const totalDaysInMonth = lastDay.getDate();
       
-      // Filtrar apenas registros do mês atual
+      // Filter only current month records
       const currentMonthRecords = records.filter(record => {
         const recordDate = new Date(record.date);
         return recordDate >= firstDay && recordDate <= lastDay;
@@ -105,7 +105,7 @@ export default function HomeScreen() {
     const todayRecord = records.find(record => record.date === currentDate);
     const hasCompletedToday = todayRecord?.completed || false;
     
-    // Só atualizar se realmente mudou
+    // Only update if it really changed
     if (canCheckIn === hasCompletedToday) {
       setCanCheckIn(!hasCompletedToday);
     }
@@ -126,7 +126,7 @@ export default function HomeScreen() {
 
   const loadTodayRecord = async () => {
     try {
-      // Buscar registro de hoje nos records carregados
+      // Search for today's record in loaded records
       const todayRecord = records.find(record => record.date === currentDate);
       if (todayRecord) {
         setTodayRecord(todayRecord);
@@ -147,7 +147,7 @@ export default function HomeScreen() {
       return;
     }
 
-    // Verificar novamente o estado atual
+    // Check current state again
     const currentTodayRecord = records.find(record => record.date === currentDate);
     const alreadyCompleted = currentTodayRecord?.completed || false;
     
@@ -177,7 +177,7 @@ export default function HomeScreen() {
       
       const recordData = {
         date: currentDate,
-        capsules: 2, // Dosagem padrão
+        capsules: 2, // Default dosage
         time: currentTime,
         notes: '',
         completed: true,
@@ -186,21 +186,21 @@ export default function HomeScreen() {
       const currentTodayRecord = records.find(record => record.date === currentDate);
       
       if (currentTodayRecord?.id) {
-        // Atualizar registro existente
+        // Update existing record
         await updateRecord(currentTodayRecord.id, recordData);
       } else {
-        // Criar novo registro
+        // Create new record
         await createRecord(recordData);
       }
 
-      // Aguardar um pouco para Firebase processar
+      // Wait a bit for processing
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      // Forçar atualização do estado local
+      // Force local state update
       setIsCompleted(true);
       setCanCheckIn(false);
       
-      // Mostrar feedback de sucesso
+      // Show success feedback
       Alert.alert(
         '🎉 ' + t('congratulations'), 
         t('recordSavedSuccess'),
@@ -247,27 +247,6 @@ export default function HomeScreen() {
         <View style={[styles.statAccent, { backgroundColor: color }]} />
       </LinearGradient>
     </Animated.View>
-  );
-
-  const QuickInsightCard = ({ icon: Icon, title, value, trend, color }: any) => (
-    <View style={[styles.quickInsightCard, { backgroundColor: theme.colors.card }]}>
-      <View style={styles.quickInsightHeader}>
-        <View style={[styles.quickInsightIcon, { backgroundColor: color + '15' }]}>
-          <Icon size={18} color={color} strokeWidth={2.5} />
-        </View>
-        <Text style={[styles.quickInsightTitle, { color: theme.colors.textSecondary }]}>
-          {title}
-        </Text>
-      </View>
-      <Text style={[styles.quickInsightValue, { color: theme.colors.text }]}>
-        {value}
-      </Text>
-      {trend && (
-        <Text style={[styles.quickInsightTrend, { color: color }]}>
-          {trend}
-        </Text>
-      )}
-    </View>
   );
 
   return (
@@ -365,17 +344,14 @@ export default function HomeScreen() {
         {/* Dosage Information */}
         <Animated.View entering={FadeInDown.delay(1200)} style={styles.infoSection}>
           <Card style={styles.dosageCard}>
-            {/* Clean Title Header */}
             <Text style={[styles.dosageTitle, { color: theme.colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
               {t('dailyRecommendedDosage')}
             </Text>
             
-            {/* Description */}
             <Text style={[styles.dosageDescription, { color: theme.colors.textSecondary }]}>
               {t('dosageDescription')}
             </Text>
             
-            {/* Instructions */}
             <View style={styles.dosageInstructions}>
               <View style={styles.instructionItem}>
                 <View style={[styles.instructionBullet, { backgroundColor: theme.colors.primary }]} />
@@ -397,7 +373,6 @@ export default function HomeScreen() {
               </View>
             </View>
             
-            {/* Dosage Badge at the end */}
             <View style={styles.dosageBadgeContainer}>
               <View style={[styles.dosageBadge, { backgroundColor: theme.colors.primary }]}>
                 <Text style={styles.dosageBadgeText}>
@@ -471,18 +446,6 @@ const styles = StyleSheet.create({
   heroSection: {
     paddingTop: 8,
     marginBottom: 32,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-    paddingHorizontal: 20,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginLeft: 8,
-    marginBottom: 16,
   },
   progressSection: {
     marginBottom: 32,

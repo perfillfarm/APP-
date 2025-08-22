@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useFirebaseRecords } from '@/contexts/FirebaseRecordsContext';
+import { useRecords } from '@/contexts/RecordsContext';
 
 interface Stats {
   totalDays: number;
@@ -11,16 +11,16 @@ interface Stats {
   completedDaysThisMonth: number;
 }
 
-interface FirebaseStatsContextData {
+interface StatsContextData {
   stats: Stats;
   loading: boolean;
   refreshStats: () => void;
 }
 
-const FirebaseStatsContext = createContext<FirebaseStatsContextData>({} as FirebaseStatsContextData);
+const StatsContext = createContext<StatsContextData>({} as StatsContextData);
 
-export const FirebaseStatsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { records } = useFirebaseRecords();
+export const StatsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { records } = useRecords();
   const [stats, setStats] = useState<Stats>({
     totalDays: 0,
     currentStreak: 0,
@@ -40,9 +40,6 @@ export const FirebaseStatsProvider: React.FC<{ children: React.ReactNode }> = ({
     setLoading(true);
     
     try {
-      // Garantir que records estão ordenados
-      const sortedRecords = [...records].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-      
       const completedRecords = records.filter(r => r.completed);
       const totalDays = completedRecords.length;
       const totalCapsules = completedRecords.reduce((sum, r) => sum + r.capsules, 0);
@@ -71,7 +68,7 @@ export const FirebaseStatsProvider: React.FC<{ children: React.ReactNode }> = ({
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       
-      const last30DaysRecords = sortedRecords.filter(r => {
+      const last30DaysRecords = records.filter(r => {
         const recordDate = new Date(r.date);
         return recordDate >= thirtyDaysAgo;
       });
@@ -93,7 +90,6 @@ export const FirebaseStatsProvider: React.FC<{ children: React.ReactNode }> = ({
         completedDaysThisMonth,
       };
 
-
       setStats(newStats);
     } catch (error) {
       console.error('❌ [StatsContext] Error calculating stats:', error);
@@ -107,7 +103,7 @@ export const FirebaseStatsProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   return (
-    <FirebaseStatsContext.Provider
+    <StatsContext.Provider
       value={{
         stats,
         loading,
@@ -115,14 +111,14 @@ export const FirebaseStatsProvider: React.FC<{ children: React.ReactNode }> = ({
       }}
     >
       {children}
-    </FirebaseStatsContext.Provider>
+    </StatsContext.Provider>
   );
 };
 
-export const useFirebaseStats = () => {
-  const context = useContext(FirebaseStatsContext);
+export const useStats = () => {
+  const context = useContext(StatsContext);
   if (!context) {
-    throw new Error('useFirebaseStats must be used within a FirebaseStatsProvider');
+    throw new Error('useStats must be used within a StatsProvider');
   }
   return context;
 };

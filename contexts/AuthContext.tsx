@@ -1,49 +1,85 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Alert } from 'react-native';
-
-interface User {
-  id: string;
-  email: string;
-  password: string;
-  name: string;
-  createdAt: string;
-}
+import { LocalStorageService, User, UserProfile } from '@/services/LocalStorageService';
 
 interface AuthContextData {
   user: User | null;
+  userProfile: UserProfile | null;
   isAuthenticated: boolean;
   loading: boolean;
+  error: string | null;
   login: (email: string, password: string) => Promise<boolean>;
-  register: (userData: Omit<User, 'id' | 'createdAt'>) => Promise<boolean>;
+  register: (userData: { name: string; email: string; password: string }) => Promise<boolean>;
   logout: () => Promise<void>;
-  checkAuthState: () => Promise<void>;
+  updateUserProfile: (updates: Partial<UserProfile>) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextData>({} as AuthContextData);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     checkAuthState();
   }, []);
 
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const handleLogoutEvent = () => {
+        console.log('🔄 [Auth] Logout event detected');
+        setUser(null);
+        setUserProfile(null);
+        setIsAuthenticated(false);
+        setError(null);
+      };
+      
+      const handleStorageChange = (e: StorageEvent) => {
+        if (e.key === 'logout' && e.newValue === 'true') {
+          handleLogoutEvent();
+        }
+      };
+      
+      window.addEventListener('logout', handleLogoutEvent);
+      window.addEventListener('storage', handleStorageChange);
+      
+      return () => {
+        window.removeEventListener('logout', handleLogoutEvent);
+        window.removeEventListener('storage', handleStorageChange);
+      };
+    }
+  }, []);
+
   const checkAuthState = async () => {
     try {
       setLoading(true);
-      const storedUser = await AsyncStorage.getItem('currentUser');
-      const storedToken = await AsyncStorage.getItem('authToken');
-
-      if (storedUser && storedToken) {
-        const userData = JSON.parse(storedUser);
-        setUser(userData);
+      console.log('🔐 [Auth] Checking authentication state...');
+      
+      const currentUser = await LocalStorageService.getCurrentUser();
+      
+      if (currentUser) {
+        console.log(`✅ [Auth] User authenticated: ${currentUser.email}`);
+        setUser(currentUser);
         setIsAuthenticated(true);
+        
+        // Load user profile
+        const profile = await LocalStorageService.getUserProfile();
+        setUserProfile(profile);
+        console.log(`👤 [Auth] Profile loaded:`, profile ? 'Success' : 'Not found');
+      } else {
+        console.log('🚪 [Auth] No authenticated user found');
+        setUser(null);
+        setUserProfile(null);
+        setIsAuthenticated(false);
       }
     } catch (error) {
-      console.error('Error checking auth state:', error);
+      console.error('❌ [Auth] Error checking auth state:', error);
+      setError('Authentication error occurred');
+      setUser(null);
+      setUserProfile(null);
+      setIsAuthenticated(false);
     } finally {
       setLoading(false);
     }
@@ -52,115 +88,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
       setLoading(true);
+      setError(null);
+      console.log(`🔐 [Auth] Attempting login for: ${email}`);
       
-      // Simular delay de rede
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const loggedUser = await LocalStorageService.loginUser(email, password);
+      setUser(loggedUser);
+      setIsAuthenticated(true);
       
-      // Buscar usuários registrados
-      const usersData = await AsyncStorage.getItem('registeredUsers');
-      const users: User[] = usersData ? JSON.parse(usersData) : [];
+      // Load user profile
+      const profile = await LocalStorageService.getUserProfile();
+      setUserProfile(profile);
       
-      // Verificar credenciais
-      const foundUser = users.find(u => 
-        u.email.toLowerCase() === email.toLowerCase() && 
-        u.password === password
-      );
-      
-      if (foundUser) {
-        // Verificar se perfil existe, se não criar um com dados do usuário
-        const existingProfile = await AsyncStorage.getItem('userProfile');
-        if (!existingProfile) {
-          const initialProfile = {
-            name: foundUser.name,
-            email: foundUser.email,
-            dateOfBirth: '',
-            gender: 'male',
-            phone: '',
-            startDate: new Date().toLocaleDateString('pt-BR'),
-            profileImage: undefined,
-          };
-          await AsyncStorage.setItem('userProfile', JSON.stringify(initialProfile));
-        }
-        
-        // Login bem-sucedido
-        setUser(foundUser);
-        setIsAuthenticated(true);
-        
-        // Salvar sessão
-        await AsyncStorage.setItem('currentUser', JSON.stringify(foundUser));
-        await AsyncStorage.setItem('authToken', `token_${Date.now()}`);
-        
-        return true;
-      } else {
-        Alert.alert('Erro', 'Email ou senha incorretos');
-        return false;
-      }
-    } catch (error) {
-      console.error('Login error:', error);
-      Alert.alert('Erro', 'Falha no login. Tente novamente.');
-      return false;
+      console.log(`✅ [Auth] Login successful for: ${email}`);
+      return true;
+    } catch (error: any) {
+      console.error('❌ [Auth] Login failed:', error);
+      setError('Login failed. Please check your credentials.');
+      throw error;
     } finally {
       setLoading(false);
     }
   };
 
-  const register = async (userData: Omit<User, 'id' | 'createdAt'>): Promise<boolean> => {
+  const register = async (userData: { name: string; email: string; password: string }): Promise<boolean> => {
     try {
       setLoading(true);
+      setError(null);
+      console.log(`📝 [Auth] Attempting registration for: ${userData.email}`);
       
-      // Simular delay de rede
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Verificar se email já existe
-      const usersData = await AsyncStorage.getItem('registeredUsers');
-      const users: User[] = usersData ? JSON.parse(usersData) : [];
-      
-      const emailExists = users.find(u => 
-        u.email.toLowerCase() === userData.email.toLowerCase()
-      );
-      
-      if (emailExists) {
-        Alert.alert('Erro', 'Este email já está cadastrado');
-        return false;
-      }
-      
-      // Criar novo usuário
-      const newUser: User = {
-        ...userData,
-        id: `user_${Date.now()}`,
-        createdAt: new Date().toISOString(),
-      };
-      
-      // Salvar no banco de dados
-      users.push(newUser);
-      await AsyncStorage.setItem('registeredUsers', JSON.stringify(users));
-      
-      // Criar perfil inicial com dados do cadastro
-      const initialProfile = {
-        name: userData.name,
-        email: userData.email,
-        dateOfBirth: '',
-        gender: 'male',
-        phone: '',
-        startDate: new Date().toLocaleDateString('pt-BR'),
-        profileImage: undefined,
-      };
-      
-      // Salvar perfil inicial
-      await AsyncStorage.setItem('userProfile', JSON.stringify(initialProfile));
-      
-      // Login automático após registro
+      const newUser = await LocalStorageService.registerUser(userData.email, userData.password, userData.name);
       setUser(newUser);
       setIsAuthenticated(true);
-      await AsyncStorage.setItem('currentUser', JSON.stringify(newUser));
-      await AsyncStorage.setItem('authToken', `token_${Date.now()}`);
       
-      Alert.alert('Sucesso', 'Conta criada com sucesso!');
+      // Load user profile
+      const profile = await LocalStorageService.getUserProfile();
+      setUserProfile(profile);
+      
+      console.log(`✅ [Auth] Registration successful for: ${userData.email}`);
       return true;
-    } catch (error) {
-      console.error('Registration error:', error);
-      Alert.alert('Erro', 'Falha no cadastro. Tente novamente.');
-      return false;
+    } catch (error: any) {
+      console.error('❌ [Auth] Registration failed:', error);
+      setError('Registration failed. Please try again.');
+      throw error;
     } finally {
       setLoading(false);
     }
@@ -168,15 +137,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     try {
+      console.log('🚪 [Auth] Starting logout process...');
       setLoading(true);
-      setIsAuthenticated(false);
+      
+      await LocalStorageService.logoutUser();
+      
       setUser(null);
-      await AsyncStorage.removeItem('currentUser');
-      await AsyncStorage.removeItem('authToken');
+      setUserProfile(null);
+      setIsAuthenticated(false);
+      setError(null);
+      
+      console.log('✅ [Auth] Logout completed successfully');
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error('❌ [Auth] Error during logout:', error);
+      
+      // Force logout even if service fails
+      setUser(null);
+      setUserProfile(null);
+      setIsAuthenticated(false);
+      setError(null);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const updateUserProfile = async (updates: Partial<UserProfile>) => {
+    try {
+      setError(null);
+      console.log(`🔄 [Auth] Updating user profile...`);
+      
+      await LocalStorageService.updateUserProfile(updates);
+      
+      // Update local state
+      setUserProfile(prev => prev ? { ...prev, ...updates } : null);
+      
+      console.log(`✅ [Auth] Profile updated successfully`);
+    } catch (error) {
+      console.error('❌ [Auth] Error updating profile:', error);
+      setError('Failed to update profile. Please try again.');
+      throw error;
     }
   };
 
@@ -184,12 +183,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     <AuthContext.Provider
       value={{
         user,
+        userProfile,
         isAuthenticated,
         loading,
+        error,
         login,
         register,
         logout,
-        checkAuthState
+        updateUserProfile,
       }}
     >
       {children}

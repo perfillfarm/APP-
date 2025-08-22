@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, ActivityIndicator } from 'react-native';
-import { useFirebaseAuth } from '@/contexts/FirebaseAuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { router } from 'expo-router';
 
 export default function IndexScreen() {
-  const { isAuthenticated, loading } = useFirebaseAuth();
+  const { isAuthenticated, loading } = useAuth();
   const { theme } = useTheme();
   const [hasRedirected, setHasRedirected] = useState(false);
 

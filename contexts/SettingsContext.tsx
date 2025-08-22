@@ -1,42 +1,48 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { FirebaseService, UserSettings } from '@/services/FirebaseService';
-import { useFirebaseAuth } from '@/contexts/FirebaseAuthContext';
+import { LocalStorageService, UserSettings } from '@/services/LocalStorageService';
+import { useAuth } from '@/contexts/AuthContext';
 
-interface FirebaseSettingsContextData {
-  settings: UserSettings | null;
+interface SettingsContextData {
+  settings: UserSettings;
   loading: boolean;
   error: string | null;
   updateSettings: (updates: Partial<UserSettings>) => Promise<void>;
   refreshSettings: () => Promise<void>;
 }
 
-const FirebaseSettingsContext = createContext<FirebaseSettingsContextData>({} as FirebaseSettingsContextData);
+const SettingsContext = createContext<SettingsContextData>({} as SettingsContextData);
 
-export const FirebaseSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user } = useFirebaseAuth();
-  const [settings, setSettings] = useState<UserSettings | null>(null);
+export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useAuth();
+  const [settings, setSettings] = useState<UserSettings>({
+    notifications: true,
+    reminderTime: '09:00',
+    dailyGoal: 2,
+    weeklyGoal: 14,
+    theme: 'light',
+    language: 'en',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) {
-      setSettings(null);
       setLoading(false);
       return;
     }
 
-    console.log(`⚙️ [SettingsContext] Loading settings for user ${user.uid}`);
+    console.log(`⚙️ [SettingsContext] Loading settings for user ${user.id}`);
     loadSettings();
   }, [user]);
 
   const loadSettings = async () => {
-    if (!user) return;
-    
     try {
       setLoading(true);
-      console.log(`⚙️ [SettingsContext] Fetching settings from Firebase`);
+      console.log(`⚙️ [SettingsContext] Fetching settings from local storage`);
       
-      const userSettings = await FirebaseService.getUserSettings(user.uid);
+      const userSettings = await LocalStorageService.getUserSettings();
       setSettings(userSettings);
       setError(null);
       
@@ -50,13 +56,11 @@ export const FirebaseSettingsProvider: React.FC<{ children: React.ReactNode }> =
   };
 
   const updateSettings = async (updates: Partial<UserSettings>) => {
-    if (!user) throw new Error('No authenticated user');
-    
     try {
       console.log(`⚙️ [SettingsContext] Updating settings:`, updates);
       
-      await FirebaseService.updateUserSettings(user.uid, updates);
-      setSettings(prev => prev ? { ...prev, ...updates } : null);
+      await LocalStorageService.updateUserSettings(updates);
+      setSettings(prev => ({ ...prev, ...updates }));
       
       console.log(`✅ [SettingsContext] Settings updated successfully`);
     } catch (error) {
@@ -71,7 +75,7 @@ export const FirebaseSettingsProvider: React.FC<{ children: React.ReactNode }> =
   };
 
   return (
-    <FirebaseSettingsContext.Provider
+    <SettingsContext.Provider
       value={{
         settings,
         loading,
@@ -81,14 +85,14 @@ export const FirebaseSettingsProvider: React.FC<{ children: React.ReactNode }> =
       }}
     >
       {children}
-    </FirebaseSettingsContext.Provider>
+    </SettingsContext.Provider>
   );
 };
 
-export const useFirebaseSettings = () => {
-  const context = useContext(FirebaseSettingsContext);
+export const useSettings = () => {
+  const context = useContext(SettingsContext);
   if (!context) {
-    throw new Error('useFirebaseSettings must be used within a FirebaseSettingsProvider');
+    throw new Error('useSettings must be used within a SettingsProvider');
   }
   return context;
 };

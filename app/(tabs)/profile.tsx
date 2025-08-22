@@ -5,8 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useFirebaseAuth } from '@/contexts/FirebaseAuthContext';
-import { FirebaseService } from '@/services/FirebaseService';
+import { useAuth } from '@/contexts/AuthContext';
 import { Card } from '@/components/ui/Card';
 import { Header } from '@/components/ui/Header';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -24,7 +23,7 @@ interface UserProfile {
 export default function ProfileScreen() {
   const { theme } = useTheme();
   const { t, language } = useLanguage();
-  const { user, userProfile, updateUserProfile } = useFirebaseAuth();
+  const { user, userProfile, updateUserProfile } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [tempProfile, setTempProfile] = useState<UserProfile | null>(null);
@@ -38,32 +37,15 @@ export default function ProfileScreen() {
     loadFirstLoginDate();
   }, [userProfile]);
 
-
   const loadFirstLoginDate = async () => {
     try {
       if (user) {
-        // Get user creation date from Firebase Auth
-        const creationTime = user.metadata.creationTime;
-        if (creationTime) {
-          const firstDate = new Date(creationTime).toLocaleDateString();
-          setFirstLoginDate(firstDate);
-        } else {
-          // Fallback: try to get from user profile or use current date
-          const profile = await FirebaseService.getUserProfile(user.uid);
-          if (profile?.createdAt) {
-            const firstDate = new Date(profile.createdAt).toLocaleDateString();
-            setFirstLoginDate(firstDate);
-          } else {
-            // Last fallback: use current date
-            const currentDate = new Date().toLocaleDateString();
-            setFirstLoginDate(currentDate);
-          }
-        }
-        
+        // Use user creation date
+        const firstDate = new Date(user.createdAt).toLocaleDateString();
+        setFirstLoginDate(firstDate);
       }
     } catch (error) {
       console.error('Error loading first login date:', error);
-      // Fallback to current date if error
       const currentDate = new Date().toLocaleDateString();
       setFirstLoginDate(currentDate);
     }
@@ -73,15 +55,14 @@ export default function ProfileScreen() {
     try {
       if (!tempProfile) return;
       
-      console.log(`🔄 [${user?.uid}] Saving profile updates...`);
+      console.log(`🔄 [Profile] Saving profile updates...`);
       await updateUserProfile(tempProfile);
       setProfile(tempProfile);
       setIsEditing(false);
-      console.log(`💊 [${user?.uid}] Profile saved successfully`);
+      console.log(`💊 [Profile] Profile saved successfully`);
       Alert.alert(t('success'), t('profileUpdatedSuccess'));
     } catch (error) {
       console.error('Error saving profile:', error);
-      console.error(`❌ [${user?.uid}] Failed to save profile:`, error);
       Alert.alert(t('error'), t('couldNotSaveProfile'));
     }
   };
@@ -94,9 +75,7 @@ export default function ProfileScreen() {
   const pickImage = async () => {
     try {
       console.log('📸 [Profile] pickImage function called');
-      console.log(`📸 [Profile] Starting image picker for user ${user?.uid}`);
       
-      // Request permission
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
       console.log('📸 [Profile] Gallery permission result:', permissionResult);
       
@@ -106,7 +85,6 @@ export default function ProfileScreen() {
         return;
       }
 
-      // Launch image picker
       console.log('📸 [Profile] Launching image picker...');
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -122,32 +100,18 @@ export default function ProfileScreen() {
         const imageUri = result.assets[0].uri;
         console.log(`📸 [Profile] Image selected: ${imageUri}`);
         
-        // Show loading state
-        console.log('📸 [Profile] Starting upload process...');
-        
-        try {
-          // Upload to Firebase Storage
-          console.log('📸 [Profile] Uploading to Firebase Storage...');
-          const downloadURL = await FirebaseService.uploadProfileImage(user!.uid, imageUri);
-          console.log(`✅ [Profile] Image uploaded successfully: ${downloadURL}`);
-          
-          // Update temp profile with Firebase URL
-          if (tempProfile) {
-            console.log('📸 [Profile] Updating temp profile with new image URL');
-            setTempProfile({ ...tempProfile, profileImageUrl: downloadURL });
-          }
-          
-          Alert.alert(t('success'), t('imageUploadedSuccess'));
-        } catch (error) {
-          console.error('Error uploading image:', error);
-          Alert.alert(t('error'), t('couldNotUploadImage'));
+        // For local storage, we'll just save the URI directly
+        if (tempProfile) {
+          console.log('📸 [Profile] Updating temp profile with new image URI');
+          setTempProfile({ ...tempProfile, profileImageUrl: imageUri });
         }
+        
+        Alert.alert(t('success'), t('imageUploadedSuccess'));
       } else {
         console.log('📸 [Profile] Image selection canceled or failed');
       }
     } catch (error) {
       console.error('Error picking image:', error);
-      console.error('📸 [Profile] Error in pickImage:', error);
       Alert.alert(t('error'), t('couldNotSelectImage'));
     }
   };
@@ -155,9 +119,7 @@ export default function ProfileScreen() {
   const takePhoto = async () => {
     try {
       console.log('📷 [Profile] takePhoto function called');
-      console.log(`📷 [Profile] Starting camera for user ${user?.uid}`);
       
-      // Request permission
       const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
       console.log('📷 [Profile] Camera permission result:', permissionResult);
       
@@ -167,7 +129,6 @@ export default function ProfileScreen() {
         return;
       }
 
-      // Launch camera
       console.log('📷 [Profile] Launching camera...');
       const result = await ImagePicker.launchCameraAsync({
         allowsEditing: true,
@@ -182,32 +143,18 @@ export default function ProfileScreen() {
         const imageUri = result.assets[0].uri;
         console.log(`📷 [Profile] Photo taken: ${imageUri}`);
         
-        // Show loading state
-        console.log('📷 [Profile] Starting upload process...');
-        
-        try {
-          // Upload to Firebase Storage
-          console.log('📷 [Profile] Uploading to Firebase Storage...');
-          const downloadURL = await FirebaseService.uploadProfileImage(user!.uid, imageUri);
-          console.log(`✅ [Profile] Photo uploaded successfully: ${downloadURL}`);
-          
-          // Update temp profile with Firebase URL
-          if (tempProfile) {
-            console.log('📷 [Profile] Updating temp profile with new image URL');
-            setTempProfile({ ...tempProfile, profileImageUrl: downloadURL });
-          }
-          
-          Alert.alert(t('success'), t('imageUploadedSuccess'));
-        } catch (error) {
-          console.error('Error uploading photo:', error);
-          Alert.alert(t('error'), t('couldNotUploadImage'));
+        // For local storage, we'll just save the URI directly
+        if (tempProfile) {
+          console.log('📷 [Profile] Updating temp profile with new image URI');
+          setTempProfile({ ...tempProfile, profileImageUrl: imageUri });
         }
+        
+        Alert.alert(t('success'), t('imageUploadedSuccess'));
       } else {
         console.log('📷 [Profile] Photo capture canceled or failed');
       }
     } catch (error) {
       console.error('Error taking photo:', error);
-      console.error('📷 [Profile] Error in takePhoto:', error);
       Alert.alert(t('error'), t('couldNotTakePhoto'));
     }
   };
@@ -240,27 +187,6 @@ export default function ProfileScreen() {
   const cancelEdit = () => {
     setTempProfile(profile ? { ...profile } : null);
     setIsEditing(false);
-  };
-
-  const calculateAge = (dateOfBirth: string) => {
-    if (!dateOfBirth) return '';
-    const birth = new Date(dateOfBirth);
-    const today = new Date();
-    let age = today.getFullYear() - birth.getFullYear();
-    const monthDiff = today.getMonth() - birth.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-      age--;
-    }
-    return '';
-  };
-
-  const calculateDaysUsing = (startDate: string) => {
-    if (!startDate) return '0';
-    const start = new Date(startDate);
-    const today = new Date();
-    const diffTime = Math.abs(today.getTime() - start.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays.toString();
   };
 
   const ProfileField = ({ 
@@ -404,7 +330,6 @@ export default function ProfileScreen() {
           </Card>
         </Animated.View>
 
-        {/* Card de Controle de Edição */}
         <Animated.View entering={FadeInDown.delay(500)}>
           <Card style={{ marginHorizontal: 20, marginBottom: 20 }} padding={20}>
             <View style={styles.controlSection}>
@@ -442,7 +367,6 @@ export default function ProfileScreen() {
         </Animated.View>
 
         <View style={styles.form}>
-          {/* Remover animações dos campos para evitar interferência */}
           <View>
             <ProfileField
               icon={User}
@@ -466,7 +390,7 @@ export default function ProfileScreen() {
               icon={Calendar}
               label={t('treatmentStartDate')}
               value={firstLoginDate || tempProfile?.treatmentStartDate || ''}
-              onChangeText={() => {}} // Read-only field
+              onChangeText={() => {}}
               placeholder={firstLoginDate ? firstLoginDate : (language === 'en' ? "Loading..." : "Carregando...")}
               readOnly={true}
             />
@@ -474,7 +398,6 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* Card de Salvamento */}
         {isEditing && (
           <Animated.View entering={FadeInDown.delay(800)}>
             <Card style={{ marginHorizontal: 20, marginBottom: 20 }} padding={20}>

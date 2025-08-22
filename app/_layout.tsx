@@ -4,10 +4,10 @@ import { StatusBar } from 'expo-status-bar';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { LanguageProvider } from '@/contexts/LanguageContext';
-import { FirebaseAuthProvider } from '@/contexts/FirebaseAuthContext';
-import { FirebaseRecordsProvider } from '@/contexts/FirebaseRecordsContext';
-import { FirebaseStatsProvider } from '@/contexts/FirebaseStatsContext';
-import { FirebaseSettingsProvider } from '@/contexts/FirebaseSettingsContext';
+import { AuthProvider } from '@/contexts/AuthContext';
+import { RecordsProvider } from '@/contexts/RecordsContext';
+import { StatsProvider } from '@/contexts/StatsContext';
+import { SettingsProvider } from '@/contexts/SettingsContext';
 import { router } from 'expo-router';
 
 export default function RootLayout() {
@@ -18,7 +18,6 @@ export default function RootLayout() {
     if (typeof window !== 'undefined') {
       const handleLogout = () => {
         console.log('🔄 [RootLayout] Logout event detected');
-        // Force immediate navigation to login
         setTimeout(() => {
           router.replace('/auth/login');
         }, 50);
@@ -32,10 +31,10 @@ export default function RootLayout() {
   return (
     <LanguageProvider>
       <ThemeProvider>
-        <FirebaseAuthProvider>
-          <FirebaseRecordsProvider>
-            <FirebaseStatsProvider>
-              <FirebaseSettingsProvider>
+        <AuthProvider>
+          <RecordsProvider>
+            <StatsProvider>
+              <SettingsProvider>
                 <Stack screenOptions={{ headerShown: false }}>
                   <Stack.Screen name="index" />
                   <Stack.Screen name="auth" />
@@ -43,10 +42,10 @@ export default function RootLayout() {
                   <Stack.Screen name="+not-found" />
                 </Stack>
                 <StatusBar style="auto" />
-              </FirebaseSettingsProvider>
-            </FirebaseStatsProvider>
-          </FirebaseRecordsProvider>
-        </FirebaseAuthProvider>
+              </SettingsProvider>
+            </StatsProvider>
+          </RecordsProvider>
+        </AuthProvider>
       </ThemeProvider>
     </LanguageProvider>
   );
