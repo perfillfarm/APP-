@@ -4,14 +4,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Mail, Lock, Eye, EyeOff, UserPlus, User, ArrowLeft, Droplets } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useFirebaseAuth } from '@/contexts/FirebaseAuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { router } from 'expo-router';
 import Animated, { FadeInDown, FadeInUp, FadeIn } from 'react-native-reanimated';
 
 export default function RegisterScreen() {
   const { theme } = useTheme();
   const { t } = useLanguage();
-  const { register, loading } = useFirebaseAuth();
+  const { register, loading } = useAuth();
   
   const [formData, setFormData] = useState({
     name: '',
@@ -72,31 +72,13 @@ export default function RegisterScreen() {
     } catch (error: any) {
       console.error('Registration error:', error);
       
-      // Mapear erros específicos do Firebase
       let errorMessage = '';
       
-      switch (error.code) {
-        case 'auth/email-already-in-use':
-          setErrors({ email: 'emailAlreadyExists' });
-          errorMessage = 'This email is already registered. Please use a different email or try logging in.';
-          break;
-        case 'auth/invalid-email':
-          setErrors({ email: 'emailInvalid' });
-          errorMessage = 'Please enter a valid email address.';
-          break;
-        case 'auth/weak-password':
-          setErrors({ password: 'passwordTooWeak' });
-          errorMessage = 'Password is too weak. Please use at least 6 characters with a mix of letters and numbers.';
-          break;
-        case 'auth/operation-not-allowed':
-          errorMessage = 'Email/password accounts are not enabled. Please contact support.';
-          break;
-        case 'auth/network-request-failed':
-          errorMessage = 'Network error. Please check your internet connection and try again.';
-          break;
-        default:
-          errorMessage = 'Registration failed. Please try again.';
-          break;
+      if (error.message === 'Email already exists') {
+        setErrors({ email: 'emailAlreadyExists' });
+        errorMessage = 'This email is already registered. Please use a different email or try logging in.';
+      } else {
+        errorMessage = 'Registration failed. Please try again.';
       }
       
       setRegisterError(errorMessage);

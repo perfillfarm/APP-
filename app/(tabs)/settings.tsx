@@ -1,12 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert } from 'react-native';
 import { Bell, Target, Info, Shield, Share2, Moon, Sun, Languages, Database, CircleHelp as HelpCircle, Settings as SettingsIcon } from 'lucide-react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useFirebaseAuth } from '@/contexts/FirebaseAuthContext';
-import { useFirebaseSettings } from '@/contexts/FirebaseSettingsContext';
-import { useTutorial } from '@/hooks/useTutorial';
+import { useAuth } from '@/contexts/AuthContext';
+import { useSettings } from '@/contexts/SettingsContext';
 import { router } from 'expo-router';
 import { Header } from '@/components/ui/Header';
 import { InfoModal } from '@/components/ui/InfoModal';
@@ -14,28 +12,16 @@ import { DataManagementModal } from '@/components/ui/DataManagementModal';
 import { HelpSupportModal } from '@/components/ui/HelpSupportModal';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
-interface Settings {
-  notifications: boolean;
-  reminderTime: string;
-  dailyGoal: number;
-  weeklyGoal: number;
-}
-
 export default function SettingsScreen() {
   const { theme, toggleTheme } = useTheme();
   const { t, language, setLanguage } = useLanguage();
-  const { logout, loading } = useFirebaseAuth();
-  const { settings, updateSettings } = useFirebaseSettings();
-  const { resetTutorial } = useTutorial();
+  const { logout, loading } = useAuth();
+  const { settings, updateSettings } = useSettings();
   const [showMaxTestorinInfo, setShowMaxTestorinInfo] = useState(false);
   const [showPrivacyInfo, setShowPrivacyInfo] = useState(false);
   const [showShareInfo, setShowShareInfo] = useState(false);
   const [showDataManagement, setShowDataManagement] = useState(false);
   const [showHelpSupport, setShowHelpSupport] = useState(false);
-
-  useEffect(() => {
-    // Settings are loaded automatically via useFirebaseSettings hook
-  }, []);
 
   const toggleNotifications = async (value: boolean) => {
     try {
@@ -70,9 +56,7 @@ export default function SettingsScreen() {
         { text: t('cancel'), style: 'cancel' },
         { 
           text: t('yes'), 
-          onPress: () => {
-            resetTutorial();
-          }
+          onPress: () => Alert.alert(t('developmentFeature'))
         }
       ]
     );

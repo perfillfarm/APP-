@@ -5,8 +5,8 @@ import { ArrowLeft, Clock, Droplets, FileText, Save } from 'lucide-react-native'
 import { router } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useFirebaseAuth } from '@/contexts/FirebaseAuthContext';
-import { useFirebaseDailyRecords } from '@/hooks/useFirebaseData';
+import { useAuth } from '@/contexts/AuthContext';
+import { useRecords } from '@/contexts/RecordsContext';
 import { Card } from '@/components/ui/Card';
 import { QuickDropsSelector } from '@/components/forms/QuickDropsSelector';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -14,8 +14,8 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 export default function RegisterUseScreen() {
   const { theme } = useTheme();
   const { t } = useLanguage();
-  const { user } = useFirebaseAuth();
-  const { createRecord, updateRecord, getRecordByDate } = useFirebaseDailyRecords();
+  const { user } = useAuth();
+  const { createRecord, updateRecord, getRecordByDate } = useRecords();
   
   const [capsules, setCapsules] = useState('2');
   const [time, setTime] = useState(
@@ -83,11 +83,11 @@ export default function RegisterUseScreen() {
         completed: true,
       };
 
-      if (existingRecord?.id) {
+      if (existingRecord && existingRecord.id) {
         // Atualizar registro existente
-        console.log(`🔄 [${user?.uid}] Updating existing record: ${existingRecord.id}`);
+        console.log(`🔄 [${user?.id}] Updating existing record: ${existingRecord.id}`);
         await updateRecord(existingRecord.id, recordData);
-        console.log(`✅ [${user?.uid}] Record updated successfully`);
+        console.log(`✅ [${user?.id}] Record updated successfully`);
         Alert.alert(
           t('todayRecordUpdated'),
           t('recordUpdatedSuccess'),
@@ -101,9 +101,9 @@ export default function RegisterUseScreen() {
         );
       } else {
         // Criar novo registro
-        console.log(`🔄 [${user?.uid}] Creating new record for ${today}`);
+        console.log(`🔄 [${user?.id}] Creating new record for ${today}`);
         await createRecord(recordData);
-        console.log(`✅ [${user?.uid}] Record created successfully`);
+        console.log(`✅ [${user?.id}] Record created successfully`);
         Alert.alert(
           t('congratulations'),
           t('recordSavedSuccess'),
@@ -122,15 +122,15 @@ export default function RegisterUseScreen() {
         try {
           const savedRecord = await getRecordByDate(today);
           if (savedRecord && savedRecord.capsules === capsulesNumber) {
-            console.log(`✅ [${user?.uid}] Record validation successful - ${capsulesNumber} capsules saved`);
+            console.log(`✅ [${user?.id}] Record validation successful - ${capsulesNumber} capsules saved`);
           } else {
-            console.warn(`⚠️ [${user?.uid}] Record validation failed - expected ${capsulesNumber} capsules`);
+            console.warn(`⚠️ [${user?.id}] Record validation failed - expected ${capsulesNumber} capsules`);
           }
         } catch (error) {
-          console.error(`❌ [${user?.uid}] Record validation error:`, error);
+          console.error(`❌ [${user?.id}] Record validation error:`, error);
         }
-      }
-      )
+      }, 1000);
+      
       Alert.alert(
         t('congratulations'),
         t('recordSavedSuccess'),
@@ -144,7 +144,7 @@ export default function RegisterUseScreen() {
       );
     } catch (error) {
       console.error('Error saving record:', error);
-      console.error(`❌ [${user?.uid}] Failed to save record:`, error);
+      console.error(`❌ [${user?.id}] Failed to save record:`, error);
       Alert.alert(t('error'), t('couldNotSaveRecord') || 'Could not save record');
     } finally {
       setLoading(false);

@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { LogOut, User, Settings, Shield } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useFirebaseAuth } from '@/contexts/FirebaseAuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { router } from 'expo-router';
 
 interface UserMenuProps {
@@ -13,7 +13,7 @@ interface UserMenuProps {
 export const UserMenu: React.FC<UserMenuProps> = ({ onClose }) => {
   const { theme } = useTheme();
   const { t } = useLanguage();
-  const { logout, user, userProfile, loading } = useFirebaseAuth();
+  const { logout, user, userProfile, loading } = useAuth();
 
   const handleLogout = () => {
     onClose?.();

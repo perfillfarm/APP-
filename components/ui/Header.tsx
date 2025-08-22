@@ -5,7 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Menu, Settings, User, Bell, Moon, Sun, Info, CircleHelp as HelpCircle, Share2, Shield, Languages } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useFirebaseAuth } from '@/contexts/FirebaseAuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { router } from 'expo-router';
 import Animated, { 
   FadeIn, 
@@ -30,7 +30,7 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const { theme, toggleTheme } = useTheme();
   const { t, language, setLanguage } = useLanguage();
-  const { logout, loading, setUser, setUserProfile, setIsAuthenticated } = useFirebaseAuth();
+  const { logout, loading } = useAuth();
   const [showMenu, setShowMenu] = useState(false);
   const buttonScale = useSharedValue(1);
 

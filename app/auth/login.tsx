@@ -3,8 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, KeyboardAvo
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Mail, Lock, Eye, EyeOff, LogIn, UserPlus, Droplets } from 'lucide-react-native';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useFirebaseAuth } from '@/contexts/FirebaseAuthContext';
-import { ForgotPasswordModal } from '@/components/auth/ForgotPasswordModal';
+import { useAuth } from '@/contexts/AuthContext';
 import { router } from 'expo-router';
 import Animated, { FadeInDown, FadeInUp, FadeIn } from 'react-native-reanimated';
 
@@ -25,14 +24,13 @@ const lightTheme = {
 
 export default function LoginScreen() {
   const { t } = useLanguage();
-  const { login, loading } = useFirebaseAuth();
+  const { login, loading } = useAuth();
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   const [loginError, setLoginError] = useState<string>('');
-  const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   const validateForm = () => {
     const newErrors: { email?: string; password?: string } = {};
@@ -65,38 +63,13 @@ export default function LoginScreen() {
     } catch (error: any) {
       console.error('Login error:', error);
       
-      // Mapear erros específicos do Firebase
       let errorMessage = '';
       
-      switch (error.code) {
-        case 'auth/user-not-found':
-          setErrors({ email: 'emailNotFound' });
-          errorMessage = 'No account found with this email address.';
-          break;
-        case 'auth/wrong-password':
-          setErrors({ password: 'wrongPassword' });
-          errorMessage = 'Incorrect password. Please try again.';
-          break;
-        case 'auth/invalid-email':
-          setErrors({ email: 'emailInvalid' });
-          errorMessage = 'Please enter a valid email address.';
-          break;
-        case 'auth/invalid-credential':
-          setErrors({ email: 'invalidCredentials', password: 'invalidCredentials' });
-          errorMessage = 'Invalid email or password. Please check your credentials.';
-          break;
-        case 'auth/too-many-requests':
-          errorMessage = 'Too many failed attempts. Please try again later.';
-          break;
-        case 'auth/user-disabled':
-          errorMessage = 'This account has been disabled. Please contact support.';
-          break;
-        case 'auth/network-request-failed':
-          errorMessage = 'Network error. Please check your internet connection.';
-          break;
-        default:
-          errorMessage = 'Login failed. Please try again.';
-          break;
+      if (error.message === 'User not found') {
+        setErrors({ email: 'emailNotFound' });
+        errorMessage = 'No account found with this email address.';
+      } else {
+        errorMessage = 'Login failed. Please check your credentials.';
       }
       
       setLoginError(errorMessage);
@@ -107,9 +80,6 @@ export default function LoginScreen() {
     router.push('/auth/register');
   };
 
-  const handleForgotPassword = () => {
-    setShowForgotPassword(true);
-  };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: lightTheme.colors.background }]}>
@@ -226,15 +196,6 @@ export default function LoginScreen() {
             </TouchableOpacity>
 
             {/* Forgot Password Link */}
-            <TouchableOpacity 
-              style={styles.forgotPasswordContainer}
-              onPress={handleForgotPassword}
-              disabled={loading}
-            >
-              <Text style={styles.forgotPasswordText}>
-                {t('forgotPassword')}
-              </Text>
-            </TouchableOpacity>
             {/* Register Link */}
             <View style={styles.registerContainer}>
               <Text style={[styles.registerText, { color: lightTheme.colors.textSecondary }]}>
@@ -267,11 +228,6 @@ export default function LoginScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* Forgot Password Modal */}
-      <ForgotPasswordModal
-        visible={showForgotPassword}
-        onClose={() => setShowForgotPassword(false)}
-      />
     </SafeAreaView>
   );
 }

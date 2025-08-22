@@ -3,7 +3,6 @@ import { View, Text, StyleSheet, Modal, TouchableOpacity, TextInput, Alert } fro
 import { Mail, X, ArrowLeft, CircleCheck as CheckCircle } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { PasswordRecoveryService } from '@/services/PasswordRecoveryService';
 import Animated, { 
   FadeIn, 
   FadeOut, 
@@ -70,31 +69,15 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
         buttonScale.value = withSpring(1, { duration: 200 });
       });
 
-      await PasswordRecoveryService.sendPasswordResetEmail(email.trim());
+      // Simulate password recovery for local storage
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
       setCurrentStep('success');
     } catch (error: any) {
       console.error('Password recovery error:', error);
       
-      // Handle specific Firebase errors
       let errorMessage = '';
-      switch (error.code) {
-        case 'auth/user-not-found':
-          errorMessage = t('emailNotFound');
-          break;
-        case 'auth/invalid-email':
-          errorMessage = t('emailInvalid');
-          break;
-        case 'auth/too-many-requests':
-          errorMessage = t('tooManyRequests');
-          break;
-        case 'auth/network-request-failed':
-          errorMessage = t('networkError');
-          break;
-        default:
-          errorMessage = t('passwordRecoveryError');
-          break;
-      }
+      errorMessage = t('passwordRecoveryError');
       
       setError(errorMessage);
       setCurrentStep('error');
